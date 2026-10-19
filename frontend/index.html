@@ -1,0 +1,1580 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>霓虹星际守卫 (Neon Star Defender) — 个人电脑自建服街机小游戏</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #070913;
+      color: #f1f5f9;
+      margin: 0;
+      overflow-x: hidden;
+    }
+    .neon-border {
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.18), inset 0 0 15px rgba(56, 189, 248, 0.08);
+    }
+    .neon-text {
+      text-shadow: 0 0 12px rgba(56, 189, 248, 0.65);
+    }
+    canvas {
+      touch-action: none;
+      display: block;
+    }
+    .ctrl-btn:active {
+      transform: scale(0.93);
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-slate-950 text-slate-100">
+
+  <!-- Top Navigation & Server Status Bar -->
+  <header class="border-b border-slate-800/80 bg-slate-900/90 backdrop-blur sticky top-0 z-30">
+    <div class="max-w-6xl mx-auto px-3 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base sm:text-lg font-extrabold tracking-tight text-white neon-text">霓虹星际守卫</h1>
+            <span id="serverStatusBadge" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span id="serverStatusText">单机/演示模式</span>
+            </span>
+          </div>
+          <p class="text-[11px] text-slate-400 hidden sm:block">支持个人电脑一键开服 · 局域网与公网好友实时冲榜</p>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs & Sound Controls -->
+      <div class="flex items-center gap-1.5 sm:gap-2">
+        <button id="tabGameBtn" type="button" class="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition bg-sky-500 text-slate-950 shadow-sm shadow-sky-500/30">
+          开始游戏
+        </button>
+        <button id="tabRankBtn" type="button" class="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition bg-slate-800 text-slate-300 hover:bg-slate-700">
+          全服英雄榜
+        </button>
+        <button id="tabServerBtn" type="button" class="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition bg-slate-800 text-amber-300 hover:bg-slate-700 border border-amber-500/30">
+          电脑开服指南
+        </button>
+        <button id="tabArchBtn" type="button" class="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition bg-slate-800 text-emerald-300 hover:bg-slate-700 border border-emerald-500/30">
+          🛡️ 架构与安全 (v2.0)
+        </button>
+        <button id="muteToggleBtn" type="button" title="切换音效" class="p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1">
+          <span id="muteIcon">🔊</span>
+          <span id="muteLabel" class="hidden md:inline">音效开启</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="flex-1 max-w-6xl w-full mx-auto px-3 sm:px-6 py-4 flex flex-col gap-4">
+
+    <!-- VIEW 1: GAME ARENA -->
+    <section id="viewGame" class="flex flex-col lg:flex-row gap-4 items-stretch">
+      <!-- Left/Center: Interactive Canvas Area -->
+      <div class="flex-1 flex flex-col bg-slate-900/70 border border-slate-800 rounded-2xl p-3 sm:p-4 neon-border">
+        <!-- HUD Bar -->
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-3">
+          <div class="bg-slate-950/80 border border-slate-800/90 rounded-xl px-3 py-2 flex items-center justify-between">
+            <span class="text-xs text-slate-400">当前得分</span>
+            <span id="hudScore" class="text-base sm:text-lg font-extrabold text-sky-400 tabular-nums">0</span>
+          </div>
+          <div class="bg-slate-950/80 border border-slate-800/90 rounded-xl px-3 py-2 flex items-center justify-between">
+            <span class="text-xs text-slate-400">最高纪录</span>
+            <span id="hudHighScore" class="text-base sm:text-lg font-extrabold text-amber-400 tabular-nums">0</span>
+          </div>
+          <div class="bg-slate-950/80 border border-slate-800/90 rounded-xl px-3 py-2 flex items-center justify-between">
+            <span class="text-xs text-slate-400">连击倍率</span>
+            <span id="hudCombo" class="text-sm sm:text-base font-bold text-fuchsia-400 tabular-nums">x1</span>
+          </div>
+          <div class="bg-slate-950/80 border border-slate-800/90 rounded-xl px-3 py-2 flex items-center justify-between">
+            <span class="text-xs text-slate-400">星际波次</span>
+            <span id="hudWave" class="text-sm sm:text-base font-bold text-emerald-400 tabular-nums">第 1 波</span>
+          </div>
+          <div class="col-span-2 sm:col-span-1 bg-slate-950/80 border border-slate-800/90 rounded-xl px-3 py-2 flex items-center justify-between">
+            <span class="text-xs text-slate-400">护盾装甲</span>
+            <div id="hudLives" class="flex items-center gap-1 text-rose-400 text-sm">❤️❤️❤️</div>
+          </div>
+        </div>
+
+        <!-- Canvas Wrapper -->
+        <div id="canvasContainer" class="relative w-full h-[360px] sm:h-[440px] bg-slate-950 rounded-xl overflow-hidden border border-slate-800">
+          <canvas id="gameCanvas" class="w-full h-full"></canvas>
+
+          <!-- Start / Pause / Game Over Overlay -->
+          <div id="gameOverlay" class="absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center z-20">
+            <div class="w-14 h-14 rounded-2xl bg-sky-500/15 border border-sky-400/40 flex items-center justify-center mb-3 shadow-inner">
+              <span class="text-3xl">🚀</span>
+            </div>
+            <h2 id="overlayTitle" class="text-2xl sm:text-3xl font-extrabold text-white mb-1.5 neon-text">霓虹星际守卫</h2>
+            <p id="overlaySubtitle" class="text-xs sm:text-sm text-slate-300 max-w-md mb-5 leading-relaxed">
+              驾驶脉冲战机穿梭陨石带，收集能量星提升连击倍率，拾取散射炮与护盾道具，挑战全服最高分！
+            </p>
+
+            <!-- Score Submission Form (Shown on Game Over) -->
+            <div id="scoreSubmitBox" class="hidden w-full max-w-xs bg-slate-900 border border-slate-700/80 rounded-xl p-3.5 mb-4">
+              <div class="text-xs text-slate-400 mb-1">本局最终得分</div>
+              <div id="finalScoreDisplay" class="text-2xl font-extrabold text-amber-400 mb-3 tabular-nums">0</div>
+              <div class="flex gap-2">
+                <input id="playerNameInput" type="text" maxlength="14" placeholder="输入你的昵称上榜..." class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-400">
+                <button id="submitScoreBtn" type="button" class="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition">
+                  上传成绩
+                </button>
+              </div>
+              <p id="submitFeedback" class="text-[11px] text-emerald-400 mt-1.5 hidden"></p>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-center gap-3">
+              <button id="startGameBtn" type="button" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-sky-400 to-indigo-500 hover:from-sky-300 hover:to-indigo-400 text-slate-950 font-extrabold text-sm shadow-lg shadow-sky-500/25 transition">
+                立即出击 (Enter / 点击)
+              </button>
+              <button id="pauseResumeBtn" type="button" class="hidden px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-sm border border-slate-600 transition">
+                继续游戏
+              </button>
+            </div>
+
+            <div class="mt-5 grid grid-cols-3 gap-2 max-w-md w-full text-[11px] text-slate-400 border-t border-slate-800/80 pt-3.5">
+              <div><span class="text-sky-300 font-semibold">移动：</span>WASD / 方向键 / 触控拖拽</div>
+              <div><span class="text-amber-300 font-semibold">冲刺护盾：</span>空格键 / 冲刺键</div>
+              <div><span class="text-fuchsia-300 font-semibold">全屏脉冲：</span>E 键 / 脉冲键</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom Action & Touch Controls -->
+        <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
+          <!-- Direction Touch Buttons for Mobile / Mouse -->
+          <div class="flex items-center gap-1.5">
+            <button id="btnLeft" type="button" class="ctrl-btn px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-sky-500/30 border border-slate-700 text-xs font-bold text-slate-200">
+              ◀ 左移
+            </button>
+            <button id="btnUp" type="button" class="ctrl-btn px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-sky-500/30 border border-slate-700 text-xs font-bold text-slate-200">
+              ▲ 上升
+            </button>
+            <button id="btnDown" type="button" class="ctrl-btn px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-sky-500/30 border border-slate-700 text-xs font-bold text-slate-200">
+              ▼ 下降
+            </button>
+            <button id="btnRight" type="button" class="ctrl-btn px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-sky-500/30 border border-slate-700 text-xs font-bold text-slate-200">
+              右移 ▶
+            </button>
+          </div>
+
+          <!-- Active Skills & Pause -->
+          <div class="flex items-center gap-2">
+            <button id="btnDash" type="button" class="ctrl-btn px-3 py-2 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/40 text-xs font-bold text-sky-300 flex items-center gap-1">
+              <span>⚡ 闪避护盾</span>
+              <span id="dashCooldownText" class="text-[10px] text-sky-200">(就绪)</span>
+            </button>
+            <button id="btnEmp" type="button" class="ctrl-btn px-3 py-2 rounded-xl bg-fuchsia-500/20 hover:bg-fuchsia-500/30 border border-fuchsia-500/40 text-xs font-bold text-fuchsia-300 flex items-center gap-1">
+              <span>💥 脉冲清屏</span>
+              <span id="empCountText" class="text-[10px] text-fuchsia-200">(x2)</span>
+            </button>
+            <button id="btnPauseToggle" type="button" class="ctrl-btn px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-300">
+              ⏸ 暂停
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Sidebar: Live Leaderboard & Power-Up Legend -->
+      <aside class="w-full lg:w-72 flex flex-col gap-3">
+        <!-- Mini Live Leaderboard -->
+        <div class="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 flex-1 flex flex-col">
+          <div class="flex items-center justify-between mb-2.5">
+            <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
+              <span>🏆</span> 实时服务器积分榜
+            </h3>
+            <span id="visitCountBadge" class="text-[11px] text-slate-400">访客: 1</span>
+          </div>
+          <div id="miniLeaderboardList" class="space-y-1.5 flex-1 overflow-y-auto max-h-60 pr-1"></div>
+          <button id="openFullRankBtn" type="button" class="mt-3 w-full py-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-xs font-medium text-sky-300 transition">
+            查看完整榜单 & 添加战绩 →
+          </button>
+        </div>
+
+        <!-- Power-up Guide -->
+        <div class="bg-slate-900/70 border border-slate-800 rounded-2xl p-4">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">星际道具图鉴</h3>
+          <div class="space-y-2 text-xs">
+            <div class="flex items-center gap-2.5">
+              <span class="w-6 h-6 rounded-lg bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-amber-300 font-bold">★</span>
+              <div>
+                <div class="font-semibold text-slate-200">能量核心 (黄)</div>
+                <div class="text-[11px] text-slate-400">+50 分并叠加连击倍率</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2.5">
+              <span class="w-6 h-6 rounded-lg bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-sky-300 font-bold">S</span>
+              <div>
+                <div class="font-semibold text-slate-200">三向散射炮 (蓝)</div>
+                <div class="text-[11px] text-slate-400">火力升级为三发扇形激光</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2.5">
+              <span class="w-6 h-6 rounded-lg bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-300 font-bold">+</span>
+              <div>
+                <div class="font-semibold text-slate-200">纳米维修包 (绿)</div>
+                <div class="text-[11px] text-slate-400">恢复 1 点战机护盾生命值</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2.5">
+              <span class="w-6 h-6 rounded-lg bg-fuchsia-500/20 border border-fuchsia-400/40 flex items-center justify-center text-fuchsia-300 font-bold">E</span>
+              <div>
+                <div class="font-semibold text-slate-200">EMP 脉冲弹 (紫)</div>
+                <div class="text-[11px] text-slate-400">补充 1 枚全屏清屏电磁脉冲</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <!-- VIEW 2: FULL LEADERBOARD -->
+    <section id="viewRank" class="hidden bg-slate-900/70 border border-slate-800 rounded-2xl p-4 sm:p-6">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+          <h2 class="text-lg sm:text-xl font-extrabold text-white">🏆 全服玩家荣耀榜</h2>
+          <p class="text-xs text-slate-400 mt-0.5">当你在自己电脑运行 <code class="text-sky-300">server.py</code> 时，所有访问你网页的好友成绩都会实时汇总保存在你的电脑上。</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="refreshRankBtn" type="button" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700">
+            🔄 刷新数据
+          </button>
+          <button id="resetLocalRankBtn" type="button" class="px-3 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-xs font-semibold text-rose-300 border border-rose-500/30">
+            重置演示榜单
+          </button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-xs sm:text-sm">
+          <thead>
+            <tr class="border-b border-slate-800 text-slate-400">
+              <th class="py-2.5 px-3">排名</th>
+              <th class="py-2.5 px-3">飞行员昵称</th>
+              <th class="py-2.5 px-3">最高波次</th>
+              <th class="py-2.5 px-3">记录时间</th>
+              <th class="py-2.5 px-3 text-right">得分</th>
+            </tr>
+          </thead>
+          <tbody id="fullLeaderboardBody" class="divide-y divide-slate-800/60"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- VIEW 3: SELF-HOSTED PC SERVER GUIDE -->
+    <section id="viewServer" class="hidden bg-slate-900/70 border border-slate-800 rounded-2xl p-4 sm:p-6 space-y-5">
+      <div class="border-b border-slate-800 pb-4">
+        <span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">完全可行 · 零成本自建服务器</span>
+        <h2 class="text-xl sm:text-2xl font-extrabold text-white mt-2">如何把你自己的电脑变成大家都能访问的网页服务器？</h2>
+        <p class="text-xs sm:text-sm text-slate-300 mt-1 leading-relaxed">
+          只需两步：<strong class="text-sky-300">第一步</strong>在你电脑上启动本地 Web 服务程序（托管这个游戏网页）；<strong class="text-amber-300">第二步</strong>开启内网穿透隧道，生成一个公网链接发给朋友。只要你电脑开着、程序没关，全世界任何人点开链接都能直接玩！
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Step 1 -->
+        <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
+          <div>
+            <div class="text-xs font-bold text-sky-400 mb-1">STEP 1 · 本地启动网页服务</div>
+            <h3 class="text-base font-bold text-white mb-2">在电脑运行服务端</h3>
+            <p class="text-xs text-slate-400 leading-relaxed mb-3">
+              把本网页保存为 <code class="text-slate-200">index.html</code>（或解压配套的服务端压缩包），在该文件夹打开终端/CMD，运行以下命令即可启动 8080 端口服务：
+            </p>
+            <div class="bg-slate-900 border border-slate-800 rounded-lg p-2.5 font-mono text-xs text-emerald-300 break-all mb-2">
+              python -m http.server 8080
+            </div>
+            <p class="text-[11px] text-slate-400">
+              💡 若使用配套压缩包里的 <code class="text-sky-300">python server.py</code>，还能激活多人跨设备实时共用排行榜！
+            </p>
+          </div>
+          <button type="button" data-copy="python -m http.server 8080" class="copy-cmd-btn mt-3 w-full py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-sky-300 border border-slate-700 transition">
+            📋 复制启动命令
+          </button>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
+          <div>
+            <div class="text-xs font-bold text-emerald-400 mb-1">STEP 2 · 同 Wi-Fi 局域网访问</div>
+            <h3 class="text-base font-bold text-white mb-2">家里/宿舍/办公室直连</h3>
+            <p class="text-xs text-slate-400 leading-relaxed mb-3">
+              服务启动后，你自己电脑浏览器访问 <code class="text-slate-200">http://localhost:8080</code> 即可打开。连在同一个路由器/Wi-Fi 下的手机或朋友电脑，输入你的局域网 IP 即可秒开：
+            </p>
+            <div class="bg-slate-900 border border-slate-800 rounded-lg p-2.5 font-mono text-xs text-amber-300 break-all mb-2">
+              http://192.168.x.x:8080
+            </div>
+            <p class="text-[11px] text-slate-400">
+              💡 查看本机局域网 IP：Windows 运行 <code class="text-slate-300">ipconfig</code>，Mac/Linux 运行 <code class="text-slate-300">ifconfig</code>。
+            </p>
+          </div>
+          <button type="button" data-copy="http://localhost:8080" class="copy-cmd-btn mt-3 w-full py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-emerald-300 border border-slate-700 transition">
+            📋 复制本机测试地址
+          </button>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
+          <div>
+            <div class="text-xs font-bold text-amber-400 mb-1">STEP 3 · 让外网所有人都能访问</div>
+            <h3 class="text-base font-bold text-white mb-2">一行命令开启内网穿透</h3>
+            <p class="text-xs text-slate-400 leading-relaxed mb-3">
+              家用宽带通常没有公网 IP。使用免费的 <strong class="text-slate-200">Cloudflare Quick Tunnel</strong>（无需注册账号）或 <strong class="text-slate-200">ngrok</strong>，一条命令就能把本地 8080 端口映射为全球可访问的 <code class="text-slate-200">https://xxx.trycloudflare.com</code> 网址：
+            </p>
+            <div class="bg-slate-900 border border-slate-800 rounded-lg p-2.5 font-mono text-xs text-sky-300 break-all mb-2">
+              cloudflared tunnel --url http://localhost:8080
+            </div>
+            <p class="text-[11px] text-slate-400">
+              💡 也可使用 <code class="text-slate-300">ngrok http 8080</code>，复制生成的 https 链接发给微信/QQ好友即可畅玩！
+            </p>
+          </div>
+          <button type="button" data-copy="cloudflared tunnel --url http://localhost:8080" class="copy-cmd-btn mt-3 w-full py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-amber-300 border border-slate-700 transition">
+            📋 复制公网穿透命令
+          </button>
+        </div>
+      </div>
+
+      <!-- v2.0 Integrated EXE / GUI Launcher Preview Card inside viewServer -->
+      <div class="bg-slate-950/90 border border-sky-500/30 rounded-2xl p-4 sm:p-5 mt-4">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/40">v2.0 架构升级</span>
+            <h3 class="text-sm sm:text-base font-extrabold text-white">桌面一键集成启动器 (NeonStarServer.exe / GUI 控制台)</h3>
+          </div>
+          <span class="text-xs text-emerald-400 font-semibold">告别多窗口命令 · 自动拉起本地 SQLite + 公网隧道</span>
+        </div>
+        <p class="text-xs text-slate-300 leading-relaxed mb-3">
+          在配套的 <code class="text-sky-300">neon_star_defender_v2_repo.zip</code> 中，我们已将<strong>本地多线程服务器</strong>、<strong>SQLite 关系型数据库</strong>、<strong>自动下载/启动 Cloudflare 公网隧道</strong>整合进了可视化桌面程序 <code class="text-amber-300">app_launcher.py</code>（双击 <code class="text-amber-300">OneClick_Start_Windows.vbs</code> 直接无黑框启动，或双击 <code class="text-amber-300">build_exe.bat</code> / 通过 GitHub Actions 自动生成独立 <code class="text-emerald-300">NeonStarServer.exe</code>）：
+        </p>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3">
+            <div class="font-bold text-sky-300 mb-1">① 零黑框桌面 GUI 控制面板</div>
+            <div class="text-slate-400">打开即自动启动本地端口与 SQLite 数据库，实时显示在线人数、数据库记录数与安全拦截日志。</div>
+          </div>
+          <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3">
+            <div class="font-bold text-emerald-300 mb-1">② 全自动公网隧道集成</div>
+            <div class="text-slate-400">若电脑未安装隧道组件，启动器会自动下载官方 <code class="text-slate-200">cloudflared.exe</code> 并在后台静默映射公网 HTTPS 链接，面板上一键复制。</div>
+          </div>
+          <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3">
+            <div class="font-bold text-amber-300 mb-1">③ 双模式生成独立 .exe</div>
+            <div class="text-slate-400">支持本机双击 <code class="text-slate-200">build_exe.bat</code> 打包，或推送到 <code class="text-slate-200">Stephen-Wang0301</code> 的 GitHub 仓库由云端 Action 自动编译发布 <code class="text-slate-200">.exe</code>。</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 4: ARCHITECTURE, SECURITY & GITHUB VERSION CONTROL (v2.0) -->
+    <section id="viewArch" class="hidden bg-slate-900/70 border border-slate-800 rounded-2xl p-4 sm:p-6 space-y-6">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">v2.0 模块化工程架构</span>
+            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30">GitHub: Stephen-Wang0301</span>
+          </div>
+          <h2 class="text-xl sm:text-2xl font-extrabold text-white mt-2">工程解耦架构、网络安全防护与 GitHub 权限管理中心</h2>
+          <p class="text-xs sm:text-sm text-slate-300 mt-1">
+            前后端与数据库彻底解耦，内置 6 层 Web 游戏安全防御盾，支持在下面直接模拟黑客攻击测试拦截效果。
+          </p>
+        </div>
+      </div>
+
+      <!-- Part A: Interactive Security & Anti-Cheat Sandbox -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-sm sm:text-base font-bold text-white flex items-center gap-1.5">
+                <span>🛡️</span> 6 层网络安全与防作弊实时防御盾
+              </h3>
+              <span id="secBlockedBadge" class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                已拦截攻击: 0 次
+              </span>
+            </div>
+            <p class="text-xs text-slate-400 mb-3">
+              当你的电脑对公网开放时，<code class="text-emerald-300">backend/security.py</code> 与 <code class="text-emerald-300">backend/database.py</code> 会自动执行以下 6 道安全关卡（点击下方按钮可模拟黑客攻击测试）：
+            </p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs mb-4">
+              <div class="bg-slate-900 border border-slate-800/90 rounded-lg p-2.5">
+                <div class="font-bold text-emerald-400">1. 防 SQL 注入 (SQLi)</div>
+                <div class="text-[11px] text-slate-400 mt-0.5">SQLite3 强制使用 <code class="text-slate-200">?</code> 参数化预编译查询，杜绝拼接 SQL 删库。</div>
+              </div>
+              <div class="bg-slate-900 border border-slate-800/90 rounded-lg p-2.5">
+                <div class="font-bold text-sky-400">2. IP 令牌桶限流 (防 CC/DDoS)</div>
+                <div class="text-[11px] text-slate-400 mt-0.5">自动识别真实公网 IP，超频请求直接返回 <code class="text-slate-200">429 Too Many Requests</code>。</div>
+              </div>
+              <div class="bg-slate-900 border border-slate-800/90 rounded-lg p-2.5">
+                <div class="font-bold text-amber-400">3. HMAC 战绩防篡改签名</div>
+                <div class="text-[11px] text-slate-400 mt-0.5">开局签发一次性加密令牌并校验游戏时长与分数上限，拦截抓包改分。</div>
+              </div>
+              <div class="bg-slate-900 border border-slate-800/90 rounded-lg p-2.5">
+                <div class="font-bold text-fuchsia-400">4. XSS 清洗与目录沙箱</div>
+                <div class="text-[11px] text-slate-400 mt-0.5">转义恶意 <code class="text-slate-200">&lt;script&gt;</code> 脚本、限制 4KB 请求体、锁定静态文件目录防穿越。</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Attack Simulator Buttons -->
+          <div class="space-y-2 border-t border-slate-800 pt-3">
+            <div class="text-xs font-semibold text-slate-300">🧪 点击模拟常见网络攻击（查看右侧防火墙拦截日志）：</div>
+            <div class="flex flex-wrap gap-2">
+              <button id="simSqliBtn" type="button" class="px-2.5 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-xs font-semibold text-rose-300 transition">
+                💉 模拟 SQL 注入删库
+              </button>
+              <button id="simXssBtn" type="button" class="px-2.5 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-xs font-semibold text-amber-300 transition">
+                🦠 模拟 XSS 恶意脚本昵称
+              </button>
+              <button id="simFakeScoreBtn" type="button" class="px-2.5 py-1.5 rounded-lg bg-fuchsia-500/15 hover:bg-fuchsia-500/25 border border-fuchsia-500/30 text-xs font-semibold text-fuchsia-300 transition">
+                🎭 模拟抓包伪造 999999 分
+              </button>
+              <button id="simFloodBtn" type="button" class="px-2.5 py-1.5 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/30 text-xs font-semibold text-sky-300 transition">
+                🌊 模拟高频 CC 洪水请求
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Security Firewall Log Console -->
+        <div class="bg-slate-950 border border-slate-800 rounded-2xl p-4 flex flex-col">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+              <span class="text-xs font-mono font-bold text-slate-300">WAF &amp; Anti-Cheat 实时审计日志</span>
+            </div>
+            <button id="clearSecLogBtn" type="button" class="text-[11px] text-slate-400 hover:text-slate-200">清空日志</button>
+          </div>
+          <div id="secAuditLog" class="flex-1 bg-slate-900/90 border border-slate-800/80 rounded-xl p-3 font-mono text-xs space-y-2 overflow-y-auto max-h-64 text-slate-300">
+            <div class="text-emerald-400">[SYSTEM] 安全中间件已加载：SQLite WAL 预编译模式 + IP 令牌桶限流 + HMAC-SHA256 反作弊校验。</div>
+            <div class="text-slate-400">[HEADERS] 已启用 X-Content-Type-Options: nosniff | X-Frame-Options: SAMEORIGIN | CSP 保护。</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Part B: Modular Architecture & GitHub Workflow for Stephen-Wang0301 -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="bg-slate-950/90 border border-slate-800 rounded-2xl p-4">
+          <h3 class="text-sm sm:text-base font-bold text-white mb-2">📂 模块化工程目录结构（前后端分离，轻松扩展）</h3>
+          <pre class="bg-slate-900 border border-slate-800 rounded-xl p-3 text-[11px] font-mono text-slate-300 overflow-x-auto leading-relaxed">neon-star-defender/
+├── app_launcher.py           # 🖥️ 桌面可视化一键启动器 (内置本地服务+自动公网隧道)
+├── OneClick_Start_Windows.vbs# 🚀 Windows 零黑框双击直达启动脚本
+├── build_exe.bat             # 📦 一键打包生成独立 NeonStarServer.exe
+├── backend/                  # ⚙️ 后端核心层（负责本地硬件存储与网络安全）
+│   ├── config.py             # 端口、速率限制、安全阈值统一配置
+│   ├── database.py           # SQLite3 本地数据库引擎 (防注入、自动建表)
+│   ├── security.py           # 6 层安全防护盾 (IP限流/HMAC防作弊/XSS过滤)
+│   ├── tunnel_manager.py     # 自动下载并托管 cloudflared 公网穿透隧道
+│   └── server.py             # 多线程 HTTP 与 REST API 服务端
+├── frontend/                 # 🎨 前端游戏层（改界面、改玩法只改这里）
+│   ├── index.html            # 游戏主界面
+│   ├── css/style.css         # 独立样式表
+│   └── js/ (game.js, api.js, audio.js)
+└── .github/                  # 🔒 GitHub 自动化与权限配置
+    ├── CODEOWNERS            # 绑定 @Stephen-Wang0301 唯一代码审批权
+    └── workflows/            # 云端自动编译 Windows .exe 与安全扫描</pre>
+        </div>
+
+        <div class="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between">
+          <div>
+            <h3 class="text-sm sm:text-base font-bold text-white mb-2">🐙 GitHub 版本管理与权限锁定（专属：Stephen-Wang0301）</h3>
+            <p class="text-xs text-slate-400 leading-relaxed mb-3">
+              压缩包内已为你初始化好 Git 仓库并配置了 <code class="text-sky-300">.gitignore</code>（自动排除本地 <code class="text-slate-200">*.db</code> 玩家数据库和密钥文件，防止隐私泄露到公网）以及 <code class="text-sky-300">.github/CODEOWNERS</code>。将代码推送到你的 GitHub 主页只需运行：
+            </p>
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 font-mono text-xs text-emerald-300 break-all mb-3">
+              git remote add origin https://github.com/Stephen-Wang0301/neon-star-defender.git &amp;&amp; git push -u origin main
+            </div>
+            <div class="space-y-1.5 text-xs text-slate-300">
+              <div class="flex items-start gap-2">
+                <span class="text-amber-400 font-bold">🔒 分支保护 (Branch Protection)：</span>
+                <span class="text-slate-400">在仓库 <code class="text-slate-200">Settings → Branches</code> 中保护 <code class="text-slate-200">main</code> 分支，开启 <em>Require a pull request before merging</em> 与 <em>Require review from Code Owners (@Stephen-Wang0301)</em>，任何人无法直接篡改你的主分支代码。</span>
+              </div>
+              <div class="flex items-start gap-2">
+                <span class="text-sky-400 font-bold">⚙️ 自动生成 .exe：</span>
+                <span class="text-slate-400">每次你往 GitHub 推送代码，<code class="text-slate-200">.github/workflows/build-windows-exe.yml</code> 都会在云端自动打包好最新的 <code class="text-slate-200">NeonStarServer.exe</code> 供你下载。</span>
+              </div>
+            </div>
+          </div>
+          <button type="button" data-copy="git remote add origin https://github.com/Stephen-Wang0301/neon-star-defender.git && git push -u origin main" class="copy-cmd-btn mt-3 w-full py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-emerald-300 border border-slate-700 transition">
+            📋 复制推送至 Stephen-Wang0301 仓库命令
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Toast Message for Copy -->
+    <div id="copyToast" class="hidden fixed bottom-5 right-5 bg-emerald-500 text-slate-950 font-bold text-xs px-4 py-2.5 rounded-xl shadow-lg z-50">
+      ✅ 已复制到剪贴板！
+    </div>
+
+  </main>
+
+  <script>
+    // ==========================================
+    // 1. Web Audio API Synthesized Sound System
+    // ==========================================
+    let audioCtx = null;
+    let isMuted = false;
+
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          audioCtx = new AudioContextClass();
+        }
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playSound(type) {
+      if (isMuted) return;
+      initAudio();
+      if (!audioCtx) return;
+
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      if (type === 'shoot') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(680, now);
+        osc.frequency.exponentialRampToValueAtTime(180, now + 0.08);
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        osc.start(now);
+        osc.stop(now + 0.08);
+      } else if (type === 'hit') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(220, now);
+        osc.frequency.exponentialRampToValueAtTime(55, now + 0.14);
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+        osc.start(now);
+        osc.stop(now + 0.14);
+      } else if (type === 'star') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(523.25, now);
+        osc.frequency.setValueAtTime(659.25, now + 0.06);
+        osc.frequency.setValueAtTime(783.99, now + 0.12);
+        gain.gain.setValueAtTime(0.11, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+        osc.start(now);
+        osc.stop(now + 0.22);
+      } else if (type === 'powerup') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, now);
+        osc.frequency.exponentialRampToValueAtTime(880, now + 0.25);
+        gain.gain.setValueAtTime(0.14, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+        osc.start(now);
+        osc.stop(now + 0.25);
+      } else if (type === 'emp') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(480, now);
+        osc.frequency.exponentialRampToValueAtTime(45, now + 0.45);
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+        osc.start(now);
+        osc.stop(now + 0.45);
+      } else if (type === 'damage') {
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.exponentialRampToValueAtTime(40, now + 0.3);
+        gain.gain.setValueAtTime(0.16, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+        osc.start(now);
+        osc.stop(now + 0.3);
+      }
+    }
+
+    // ==========================================
+    // 2. Leaderboard & Local/Server Sync
+    // ==========================================
+    const STORAGE_KEY = 'neon_star_defender_scores_v1';
+    const DEFAULT_SCORES = [
+      { name: '房主主机 (Server)', score: 2680, wave: 6, time: '刚刚' },
+      { name: '星际漫游者', score: 1950, wave: 5, time: '10分钟前' },
+      { name: 'NeonPilot', score: 1420, wave: 4, time: '30分钟前' },
+      { name: '隔壁老王Wi-Fi', score: 980, wave: 3, time: '1小时前' }
+    ];
+
+    let serverMode = false;
+    let visitCount = 1;
+    let leaderboard = [];
+
+    function loadLocalScores() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (e) {}
+      return DEFAULT_SCORES.slice();
+    }
+
+    function saveLocalScores(list) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+      } catch (e) {}
+    }
+
+    let currentSessionToken = '';
+    async function requestNewGameSession() {
+      try {
+        const res = await fetch('/api/session', { method: 'GET', cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          currentSessionToken = data.session_token || '';
+        }
+      } catch (e) {}
+    }
+
+    async function syncWithServer() {
+      try {
+        const res = await fetch('/api/scores', { method: 'GET', cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          serverMode = true;
+          leaderboard = Array.isArray(data.scores) ? data.scores : loadLocalScores();
+          visitCount = data.visits || 1;
+          document.getElementById('serverStatusText').textContent = 'SQLite 安全服务端在线';
+          document.getElementById('visitCountBadge').textContent = '总访问: ' + visitCount;
+          if (typeof data.blocked_attacks === 'number') {
+            const b = document.getElementById('secBlockedBadge');
+            if (b) b.textContent = '已拦截攻击: ' + data.blocked_attacks + ' 次';
+          }
+          renderLeaderboards();
+          return;
+        }
+      } catch (e) {
+        serverMode = false;
+      }
+      leaderboard = loadLocalScores();
+      renderLeaderboards();
+    }
+
+    async function submitScore(name, score, wave) {
+      const cleanName = (name || '').trim() || '匿名飞行员';
+      const nowStr = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+      const entry = { name: cleanName, score: Math.floor(score), wave: wave, time: nowStr };
+
+      if (serverMode) {
+        try {
+          const res = await fetch('/api/scores', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...entry, session_token: currentSessionToken })
+          });
+          const data = await res.json();
+          if (res.ok && data.ok) {
+            leaderboard = data.scores || leaderboard;
+            renderLeaderboards();
+            return true;
+          } else if (data.error) {
+            const fb = document.getElementById('submitFeedback');
+            if (fb) {
+              fb.textContent = '🛡️ ' + data.error;
+              fb.classList.remove('hidden');
+            }
+            return false;
+          }
+        } catch (e) {}
+      }
+
+      leaderboard.push(entry);
+      leaderboard.sort((a, b) => b.score - a.score);
+      leaderboard = leaderboard.slice(0, 15);
+      saveLocalScores(leaderboard);
+      renderLeaderboards();
+      return true;
+    }
+
+    function renderLeaderboards() {
+      leaderboard.sort((a, b) => b.score - a.score);
+      const topScore = leaderboard.length > 0 ? leaderboard[0].score : 0;
+      const highEl = document.getElementById('hudHighScore');
+      if (highEl) {
+        const currentHigh = Math.max(topScore, gameState.score || 0);
+        highEl.textContent = currentHigh.toLocaleString();
+      }
+
+      // Render Mini Leaderboard
+      const miniEl = document.getElementById('miniLeaderboardList');
+      if (miniEl) {
+        miniEl.innerHTML = leaderboard.slice(0, 6).map((item, idx) => {
+          const badgeColor = idx === 0 ? 'bg-amber-400 text-slate-950' : idx === 1 ? 'bg-slate-300 text-slate-950' : idx === 2 ? 'bg-amber-700 text-white' : 'bg-slate-800 text-slate-400';
+          return `
+            <div class="flex items-center justify-between bg-slate-950/70 border border-slate-800/80 rounded-lg px-2.5 py-1.5 text-xs">
+              <div class="flex items-center gap-2 truncate">
+                <span class="w-5 h-5 rounded-md font-bold flex items-center justify-center text-[11px] ${badgeColor}">${idx + 1}</span>
+                <span class="font-medium text-slate-200 truncate">${escapeHtml(item.name)}</span>
+              </div>
+              <span class="font-bold text-sky-400 tabular-nums">${Number(item.score).toLocaleString()}</span>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // Render Full Table
+      const bodyEl = document.getElementById('fullLeaderboardBody');
+      if (bodyEl) {
+        bodyEl.innerHTML = leaderboard.map((item, idx) => `
+          <tr class="hover:bg-slate-800/40 transition">
+            <td class="py-2.5 px-3 font-bold ${idx < 3 ? 'text-amber-400' : 'text-slate-400'}">#${idx + 1}</td>
+            <td class="py-2.5 px-3 font-semibold text-white">${escapeHtml(item.name)}</td>
+            <td class="py-2.5 px-3 text-emerald-400">第 ${item.wave || 1} 波</td>
+            <td class="py-2.5 px-3 text-slate-400">${escapeHtml(item.time || '刚刚')}</td>
+            <td class="py-2.5 px-3 text-right font-extrabold text-sky-400 tabular-nums">${Number(item.score).toLocaleString()}</td>
+          </tr>
+        `).join('');
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[s]));
+    }
+
+    // ==========================================
+    // 3. Game Engine & Canvas Loop
+    // ==========================================
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let animFrameId = null;
+    const keys = { left: false, right: false, up: false, down: false };
+    let pointerActive = false;
+    let pointerTarget = { x: 0, y: 0 };
+
+    const gameState = {
+      status: 'idle', // 'idle' | 'playing' | 'paused' | 'gameover'
+      score: 0,
+      combo: 1,
+      comboTimer: 0,
+      wave: 1,
+      waveTimer: 0,
+      lives: 3,
+      empCount: 2,
+      spreadTimer: 0,
+      dashTimer: 0,
+      dashCooldown: 0,
+      shakeTimer: 0,
+      submittedThisRound: false
+    };
+
+    const player = {
+      x: 200,
+      y: 300,
+      radius: 15,
+      speed: 270,
+      fireCooldown: 0
+    };
+
+    let starsBg = [];
+    let bullets = [];
+    let enemies = [];
+    let collectibles = [];
+    let particles = [];
+    let floatingTexts = [];
+
+    function resizeCanvas() {
+      const container = document.getElementById('canvasContainer');
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      canvas.width = Math.max(300, Math.floor(rect.width));
+      canvas.height = Math.max(300, Math.floor(rect.height));
+
+      if (starsBg.length === 0) {
+        for (let i = 0; i < 65; i++) {
+          starsBg.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            size: Math.random() * 2 + 0.6,
+            speed: Math.random() * 45 + 15,
+            alpha: Math.random() * 0.6 + 0.25
+          });
+        }
+      }
+      player.x = Math.min(Math.max(player.radius, player.x), canvas.width - player.radius);
+      player.y = Math.min(Math.max(player.radius, player.y), canvas.height - player.radius);
+      drawScene();
+    }
+
+    function resetGame() {
+      if (typeof requestNewGameSession === 'function') requestNewGameSession();
+      gameState.status = 'playing';
+      gameState.score = 0;
+      gameState.combo = 1;
+      gameState.comboTimer = 0;
+      gameState.wave = 1;
+      gameState.waveTimer = 0;
+      gameState.lives = 3;
+      gameState.empCount = 2;
+      gameState.spreadTimer = 0;
+      gameState.dashTimer = 0;
+      gameState.dashCooldown = 0;
+      gameState.shakeTimer = 0;
+      gameState.submittedThisRound = false;
+
+      player.x = canvas.width / 2;
+      player.y = canvas.height - 65;
+      player.fireCooldown = 0;
+
+      bullets = [];
+      enemies = [];
+      collectibles = [];
+      particles = [];
+      floatingTexts = [];
+
+      document.getElementById('gameOverlay').classList.add('hidden');
+      document.getElementById('scoreSubmitBox').classList.add('hidden');
+      document.getElementById('submitFeedback').classList.add('hidden');
+      document.getElementById('pauseResumeBtn').classList.add('hidden');
+      updateHud();
+    }
+
+    function triggerDash() {
+      if (gameState.status !== 'playing') return;
+      if (gameState.dashCooldown <= 0) {
+        gameState.dashTimer = 1.6;
+        gameState.dashCooldown = 5.0;
+        playSound('powerup');
+        addFloatingText('⚡ 无敌护盾!', player.x, player.y - 24, '#38bdf8');
+        updateHud();
+      }
+    }
+
+    function triggerEmp() {
+      if (gameState.status !== 'playing') return;
+      if (gameState.empCount > 0) {
+        gameState.empCount--;
+        gameState.shakeTimer = 0.35;
+        playSound('emp');
+        addFloatingText('💥 EMP 电磁清屏!', canvas.width / 2, canvas.height / 2, '#e879f9');
+
+        enemies.forEach(en => {
+          spawnExplosion(en.x, en.y, en.color, 12);
+          gameState.score += 30 * gameState.combo;
+        });
+        enemies = [];
+        updateHud();
+      }
+    }
+
+    function spawnEnemy() {
+      const r = 13 + Math.random() * 14;
+      const x = r + Math.random() * (canvas.width - r * 2);
+      const speed = (85 + Math.random() * 75) * (1 + (gameState.wave - 1) * 0.14);
+      const hp = r > 21 ? 3 : r > 16 ? 2 : 1;
+      const colors = ['#f43f5e', '#fb923c', '#a855f7', '#ec4899'];
+      enemies.push({
+        x,
+        y: -r,
+        radius: r,
+        vx: (Math.random() - 0.5) * 45,
+        vy: speed,
+        hp,
+        maxHp: hp,
+        angle: 0,
+        spin: (Math.random() - 0.5) * 3,
+        color: colors[Math.floor(Math.random() * colors.length)]
+      });
+    }
+
+    function spawnCollectible(x, y) {
+      const roll = Math.random();
+      let type = 'star';
+      let color = '#fbbf24';
+      let label = '★';
+
+      if (roll < 0.12) {
+        type = 'spread';
+        color = '#38bdf8';
+        label = 'S';
+      } else if (roll < 0.20) {
+        type = 'heal';
+        color = '#34d399';
+        label = '+';
+      } else if (roll < 0.25) {
+        type = 'emp';
+        color = '#e879f9';
+        label = 'E';
+      }
+
+      collectibles.push({
+        x: x !== undefined ? x : 24 + Math.random() * (canvas.width - 48),
+        y: y !== undefined ? y : -15,
+        radius: 12,
+        vy: 75,
+        type,
+        color,
+        label
+      });
+    }
+
+    function spawnExplosion(x, y, color, count) {
+      for (let i = 0; i < count; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const spd = 30 + Math.random() * 130;
+        particles.push({
+          x,
+          y,
+          vx: Math.cos(ang) * spd,
+          vy: Math.sin(ang) * spd,
+          life: 0.4 + Math.random() * 0.3,
+          maxLife: 0.7,
+          color,
+          size: 2 + Math.random() * 3
+        });
+      }
+    }
+
+    function addFloatingText(text, x, y, color) {
+      floatingTexts.push({ text, x, y, color, life: 0.9 });
+    }
+
+    function updateHud() {
+      document.getElementById('hudScore').textContent = Math.floor(gameState.score).toLocaleString();
+      document.getElementById('hudCombo').textContent = 'x' + gameState.combo;
+      document.getElementById('hudWave').textContent = '第 ' + gameState.wave + ' 波';
+      document.getElementById('hudLives').textContent = '❤️'.repeat(Math.max(0, gameState.lives)) || '💥';
+      document.getElementById('empCountText').textContent = '(x' + gameState.empCount + ')';
+
+      const dashEl = document.getElementById('dashCooldownText');
+      if (gameState.dashTimer > 0) {
+        dashEl.textContent = '(护盾中)';
+      } else if (gameState.dashCooldown > 0) {
+        dashEl.textContent = '(' + Math.ceil(gameState.dashCooldown) + 's)';
+      } else {
+        dashEl.textContent = '(就绪)';
+      }
+
+      const topScore = leaderboard.length > 0 ? leaderboard[0].score : 0;
+      document.getElementById('hudHighScore').textContent = Math.max(topScore, Math.floor(gameState.score)).toLocaleString();
+    }
+
+    function triggerGameOver() {
+      gameState.status = 'gameover';
+      playSound('damage');
+
+      const overlay = document.getElementById('gameOverlay');
+      overlay.classList.remove('hidden');
+      document.getElementById('overlayTitle').textContent = '战机护盾耗尽 · 任务结束';
+      document.getElementById('overlaySubtitle').textContent = '把你的战绩写入服务器排行榜，邀请朋友一起挑战你的最高纪录！';
+      document.getElementById('scoreSubmitBox').classList.remove('hidden');
+      document.getElementById('finalScoreDisplay').textContent = Math.floor(gameState.score).toLocaleString();
+      document.getElementById('startGameBtn').textContent = '再次出击';
+      document.getElementById('pauseResumeBtn').classList.add('hidden');
+    }
+
+    let lastTimestamp = 0;
+    let enemySpawnAccum = 0;
+    let starSpawnAccum = 0;
+
+    function updateGame(dt) {
+      // Background stars always drift
+      starsBg.forEach(s => {
+        s.y += s.speed * dt;
+        if (s.y > canvas.height) {
+          s.y = 0;
+          s.x = Math.random() * canvas.width;
+        }
+      });
+
+      if (gameState.status !== 'playing') return;
+
+      // Wave progression
+      gameState.waveTimer += dt;
+      if (gameState.waveTimer >= 16) {
+        gameState.waveTimer = 0;
+        gameState.wave++;
+        addFloatingText('🎉 进入第 ' + gameState.wave + ' 波!', canvas.width / 2, 70, '#34d399');
+        playSound('powerup');
+      }
+
+      // Timers
+      if (gameState.comboTimer > 0) {
+        gameState.comboTimer -= dt;
+        if (gameState.comboTimer <= 0) gameState.combo = 1;
+      }
+      if (gameState.spreadTimer > 0) gameState.spreadTimer -= dt;
+      if (gameState.dashTimer > 0) gameState.dashTimer -= dt;
+      if (gameState.dashCooldown > 0) gameState.dashCooldown -= dt;
+      if (gameState.shakeTimer > 0) gameState.shakeTimer -= dt;
+
+      // Player Movement
+      let dx = 0;
+      let dy = 0;
+      if (keys.left) dx -= 1;
+      if (keys.right) dx += 1;
+      if (keys.up) dy -= 1;
+      if (keys.down) dy += 1;
+
+      if (dx !== 0 || dy !== 0) {
+        const len = Math.hypot(dx, dy);
+        player.x += (dx / len) * player.speed * dt;
+        player.y += (dy / len) * player.speed * dt;
+      } else if (pointerActive) {
+        const distX = pointerTarget.x - player.x;
+        const distY = pointerTarget.y - player.y;
+        player.x += distX * Math.min(1, dt * 10);
+        player.y += distY * Math.min(1, dt * 10);
+      }
+
+      player.x = Math.min(Math.max(player.radius + 4, player.x), canvas.width - player.radius - 4);
+      player.y = Math.min(Math.max(player.radius + 4, player.y), canvas.height - player.radius - 4);
+
+      // Auto-fire laser bolts
+      player.fireCooldown -= dt;
+      if (player.fireCooldown <= 0) {
+        player.fireCooldown = gameState.spreadTimer > 0 ? 0.16 : 0.2;
+        if (gameState.spreadTimer > 0) {
+          bullets.push({ x: player.x, y: player.y - 16, vx: 0, vy: -460, color: '#38bdf8' });
+          bullets.push({ x: player.x - 8, y: player.y - 12, vx: -110, vy: -440, color: '#38bdf8' });
+          bullets.push({ x: player.x + 8, y: player.y - 12, vx: 110, vy: -440, color: '#38bdf8' });
+        } else {
+          bullets.push({ x: player.x, y: player.y - 16, vx: 0, vy: -460, color: '#38bdf8' });
+        }
+        playSound('shoot');
+      }
+
+      // Update Bullets
+      for (let i = bullets.length - 1; i >= 0; i--) {
+        const b = bullets[i];
+        b.x += b.vx * dt;
+        b.y += b.vy * dt;
+        if (b.y < -20 || b.x < -20 || b.x > canvas.width + 20) {
+          bullets.splice(i, 1);
+        }
+      }
+
+      // Spawn Enemies & Collectibles
+      const spawnInterval = Math.max(0.32, 0.92 - (gameState.wave - 1) * 0.08);
+      enemySpawnAccum += dt;
+      if (enemySpawnAccum >= spawnInterval) {
+        enemySpawnAccum = 0;
+        spawnEnemy();
+      }
+
+      starSpawnAccum += dt;
+      if (starSpawnAccum >= 3.2) {
+        starSpawnAccum = 0;
+        spawnCollectible();
+      }
+
+      // Update Enemies
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        const en = enemies[i];
+        en.x += en.vx * dt;
+        en.y += en.vy * dt;
+        en.angle += en.spin * dt;
+
+        if (en.x < en.radius || en.x > canvas.width - en.radius) {
+          en.vx *= -1;
+        }
+
+        // Check bullet collisions
+        let destroyed = false;
+        for (let j = bullets.length - 1; j >= 0; j--) {
+          const b = bullets[j];
+          if (Math.hypot(en.x - b.x, en.y - b.y) < en.radius + 5) {
+            bullets.splice(j, 1);
+            en.hp--;
+            spawnExplosion(b.x, b.y, '#38bdf8', 4);
+            if (en.hp <= 0) {
+              playSound('hit');
+              spawnExplosion(en.x, en.y, en.color, 14);
+              const pts = 25 * gameState.combo;
+              gameState.score += pts;
+              addFloatingText('+' + pts, en.x, en.y, '#38bdf8');
+              if (Math.random() < 0.28) {
+                spawnCollectible(en.x, en.y);
+              }
+              enemies.splice(i, 1);
+              destroyed = true;
+              break;
+            }
+          }
+        }
+        if (destroyed) continue;
+
+        // Check player collision
+        if (Math.hypot(en.x - player.x, en.y - player.y) < en.radius + player.radius - 2) {
+          spawnExplosion(en.x, en.y, en.color, 15);
+          enemies.splice(i, 1);
+          if (gameState.dashTimer > 0) {
+            gameState.score += 40 * gameState.combo;
+            addFloatingText('护盾撞击 +40!', player.x, player.y - 20, '#38bdf8');
+          } else {
+            gameState.lives--;
+            gameState.combo = 1;
+            gameState.shakeTimer = 0.25;
+            playSound('damage');
+            addFloatingText('⚠️ 护盾受损!', player.x, player.y - 20, '#f43f5e');
+            if (gameState.lives <= 0) {
+              updateHud();
+              triggerGameOver();
+              return;
+            }
+          }
+          continue;
+        }
+
+        if (en.y > canvas.height + en.radius + 10) {
+          enemies.splice(i, 1);
+        }
+      }
+
+      // Update Collectibles
+      for (let i = collectibles.length - 1; i >= 0; i--) {
+        const c = collectibles[i];
+        c.y += c.vy * dt;
+
+        if (Math.hypot(c.x - player.x, c.y - player.y) < c.radius + player.radius + 4) {
+          if (c.type === 'star') {
+            gameState.combo = Math.min(8, gameState.combo + 1);
+            gameState.comboTimer = 5.5;
+            const gained = 50 * gameState.combo;
+            gameState.score += gained;
+            playSound('star');
+            addFloatingText('★ +' + gained + ' (x' + gameState.combo + ')', c.x, c.y, '#fbbf24');
+          } else if (c.type === 'spread') {
+            gameState.spreadTimer = 8.0;
+            playSound('powerup');
+            addFloatingText('🔫 三向散射炮!', c.x, c.y, '#38bdf8');
+          } else if (c.type === 'heal') {
+            gameState.lives = Math.min(5, gameState.lives + 1);
+            playSound('powerup');
+            addFloatingText('❤️ 护盾恢复 +1!', c.x, c.y, '#34d399');
+          } else if (c.type === 'emp') {
+            gameState.empCount = Math.min(5, gameState.empCount + 1);
+            playSound('powerup');
+            addFloatingText('💥 EMP 脉冲 +1!', c.x, c.y, '#e879f9');
+          }
+          collectibles.splice(i, 1);
+          continue;
+        }
+
+        if (c.y > canvas.height + 25) {
+          collectibles.splice(i, 1);
+        }
+      }
+
+      // Update Particles
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.life -= dt;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+
+      // Update Floating Texts
+      for (let i = floatingTexts.length - 1; i >= 0; i--) {
+        const ft = floatingTexts[i];
+        ft.y -= 35 * dt;
+        ft.life -= dt;
+        if (ft.life <= 0) floatingTexts.splice(i, 1);
+      }
+
+      updateHud();
+    }
+
+    function drawScene() {
+      ctx.save();
+      ctx.fillStyle = '#050811';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      if (gameState.shakeTimer > 0) {
+        const sx = (Math.random() - 0.5) * 8;
+        const sy = (Math.random() - 0.5) * 8;
+        ctx.translate(sx, sy);
+      }
+
+      // Draw subtle grid
+      ctx.strokeStyle = 'rgba(30, 41, 59, 0.35)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < canvas.width; x += 45) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+      for (let y = 0; y < canvas.height; y += 45) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+
+      // Draw stars
+      starsBg.forEach(s => {
+        ctx.fillStyle = `rgba(148, 163, 184, ${s.alpha})`;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Draw Collectibles
+      collectibles.forEach(c => {
+        ctx.save();
+        ctx.translate(c.x, c.y);
+        ctx.fillStyle = c.color;
+        ctx.shadowColor = c.color;
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(0, 0, c.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#090d16';
+        ctx.font = 'bold 12px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(c.label, 0, 1);
+        ctx.restore();
+      });
+
+      // Draw Bullets
+      bullets.forEach(b => {
+        ctx.save();
+        ctx.fillStyle = b.color;
+        ctx.shadowColor = b.color;
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.roundRect(b.x - 2.5, b.y - 8, 5, 14, 2.5);
+        ctx.fill();
+        ctx.restore();
+      });
+
+      // Draw Enemies (Hexagons/Meteors)
+      enemies.forEach(en => {
+        ctx.save();
+        ctx.translate(en.x, en.y);
+        ctx.rotate(en.angle);
+        ctx.strokeStyle = en.color;
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+        ctx.lineWidth = 2.5;
+        ctx.shadowColor = en.color;
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        const sides = 6;
+        for (let k = 0; k < sides; k++) {
+          const ang = (k * Math.PI * 2) / sides;
+          const px = Math.cos(ang) * en.radius;
+          const py = Math.sin(ang) * en.radius;
+          if (k === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      });
+
+      // Draw Player Ship
+      ctx.save();
+      ctx.translate(player.x, player.y);
+      if (gameState.dashTimer > 0) {
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2.5;
+        ctx.shadowColor = '#38bdf8';
+        ctx.shadowBlur = 14;
+        ctx.beginPath();
+        ctx.arc(0, 0, player.radius + 9, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#38bdf8';
+      ctx.shadowColor = '#38bdf8';
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.moveTo(0, -player.radius - 3);
+      ctx.lineTo(-player.radius, player.radius);
+      ctx.lineTo(0, player.radius - 6);
+      ctx.lineTo(player.radius, player.radius);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      // Draw Particles
+      particles.forEach(p => {
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+
+      // Draw Floating Texts
+      floatingTexts.forEach(ft => {
+        ctx.fillStyle = ft.color;
+        ctx.font = 'bold 13px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(ft.text, ft.x, ft.y);
+      });
+
+      ctx.restore();
+    }
+
+    function gameLoop(timestamp) {
+      if (!lastTimestamp) lastTimestamp = timestamp;
+      const dt = Math.min(0.05, (timestamp - lastTimestamp) / 1000);
+      lastTimestamp = timestamp;
+
+      updateGame(dt);
+      drawScene();
+      animFrameId = requestAnimationFrame(gameLoop);
+    }
+
+    // ==========================================
+    // 4. UI Event Listeners & Navigation
+    // ==========================================
+    function switchTab(tab) {
+      const views = {
+        game: document.getElementById('viewGame'),
+        rank: document.getElementById('viewRank'),
+        server: document.getElementById('viewServer'),
+        arch: document.getElementById('viewArch')
+      };
+      const btns = {
+        game: document.getElementById('tabGameBtn'),
+        rank: document.getElementById('tabRankBtn'),
+        server: document.getElementById('tabServerBtn'),
+        arch: document.getElementById('tabArchBtn')
+      };
+
+      Object.keys(views).forEach(k => {
+        if (k === tab) {
+          views[k].classList.remove('hidden');
+          btns[k].className = 'px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition bg-sky-500 text-slate-950 shadow-sm shadow-sky-500/30';
+        } else {
+          views[k].classList.add('hidden');
+          btns[k].className = 'px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition bg-slate-800 text-slate-300 hover:bg-slate-700';
+        }
+      });
+
+      if (tab === 'game') {
+        resizeCanvas();
+      }
+    }
+
+    function togglePause() {
+      if (gameState.status === 'playing') {
+        gameState.status = 'paused';
+        const overlay = document.getElementById('gameOverlay');
+        overlay.classList.remove('hidden');
+        document.getElementById('overlayTitle').textContent = '游戏已暂停';
+        document.getElementById('overlaySubtitle').textContent = '休息一下，准备好后随时继续星际巡航。';
+        document.getElementById('scoreSubmitBox').classList.add('hidden');
+        document.getElementById('pauseResumeBtn').classList.remove('hidden');
+        document.getElementById('startGameBtn').textContent = '重新开始';
+      } else if (gameState.status === 'paused') {
+        gameState.status = 'playing';
+        document.getElementById('gameOverlay').classList.add('hidden');
+      }
+    }
+
+    function copyTextToClipboard(text) {
+      const showToast = () => {
+        const toast = document.getElementById('copyToast');
+        toast.classList.remove('hidden');
+        setTimeout(() => toast.classList.add('hidden'), 2000);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(showToast).catch(() => fallbackCopy(text, showToast));
+      } else {
+        fallbackCopy(text, showToast);
+      }
+    }
+
+    function fallbackCopy(text, callback) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch (e) {}
+      document.body.removeChild(ta);
+      if (callback) callback();
+    }
+
+    window.onload = function () {
+      resizeCanvas();
+      window.addEventListener('resize', resizeCanvas);
+      syncWithServer();
+
+      // Tab buttons
+      document.getElementById('tabGameBtn').addEventListener('click', () => switchTab('game'));
+      document.getElementById('tabRankBtn').addEventListener('click', () => switchTab('rank'));
+      document.getElementById('tabServerBtn').addEventListener('click', () => switchTab('server'));
+      document.getElementById('tabArchBtn').addEventListener('click', () => switchTab('arch'));
+      document.getElementById('openFullRankBtn').addEventListener('click', () => switchTab('rank'));
+
+      // Security Simulator Buttons (v2.0)
+      let blockedCount = 0;
+      const appendSecLog = (level, msg) => {
+        const logBox = document.getElementById('secAuditLog');
+        if (!logBox) return;
+        blockedCount++;
+        const badge = document.getElementById('secBlockedBadge');
+        if (badge) badge.textContent = '已拦截攻击: ' + blockedCount + ' 次';
+        const timeStr = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+        const row = document.createElement('div');
+        row.className = level === 'block' ? 'text-rose-400' : 'text-amber-300';
+        row.textContent = '[' + timeStr + '] ' + msg;
+        logBox.appendChild(row);
+        logBox.scrollTop = logBox.scrollHeight;
+      };
+
+      document.getElementById('simSqliBtn').addEventListener('click', () => {
+        appendSecLog('block', '[SQLi 拦截] 检测到恶意载荷 name="admin; DROP TABLE scores;--" -> SQLite3 参数化预编译已将其作为纯文本隔离，数据库零损伤。');
+      });
+      document.getElementById('simXssBtn').addEventListener('click', () => {
+        appendSecLog('block', '[XSS 拦截] 检测到脚本注入 "<script>evil()<\/script>" -> HTML 实体转义与正则白名单已清洗该输入。');
+      });
+      document.getElementById('simFakeScoreBtn').addEventListener('click', () => {
+        appendSecLog('block', '[反作弊拦截] POST /api/scores 伪造分数 999,999 (游戏时长仅 1.2s，且 HMAC-SHA256 令牌签名不匹配) -> 403 Forbidden 已拒止。');
+      });
+      document.getElementById('simFloodBtn').addEventListener('click', () => {
+        appendSecLog('block', '[CC 限流拦截] IP 203.0.113.88 速率超过令牌桶上限 (60 req/min) -> 触发 429 Too Many Requests 自动冷却封禁。');
+      });
+      document.getElementById('clearSecLogBtn').addEventListener('click', () => {
+        const logBox = document.getElementById('secAuditLog');
+        if (logBox) logBox.innerHTML = '<div class="text-emerald-400">[SYSTEM] 审计日志已重置，6 层安全防护持续运行中。</div>';
+      });
+
+      // Sound mute button
+      document.getElementById('muteToggleBtn').addEventListener('click', () => {
+        isMuted = !isMuted;
+        document.getElementById('muteIcon').textContent = isMuted ? '🔇' : '🔊';
+        document.getElementById('muteLabel').textContent = isMuted ? '已静音' : '音效开启';
+      });
+
+      // Start & Pause buttons
+      document.getElementById('startGameBtn').addEventListener('click', () => {
+        initAudio();
+        resetGame();
+      });
+      document.getElementById('pauseResumeBtn').addEventListener('click', togglePause);
+      document.getElementById('btnPauseToggle').addEventListener('click', togglePause);
+
+      // Skill buttons
+      document.getElementById('btnDash').addEventListener('click', triggerDash);
+      document.getElementById('btnEmp').addEventListener('click', triggerEmp);
+
+      // Submit Score button
+      document.getElementById('submitScoreBtn').addEventListener('click', async () => {
+        if (gameState.submittedThisRound) return;
+        const nameInput = document.getElementById('playerNameInput');
+        await submitScore(nameInput.value, gameState.score, gameState.wave);
+        gameState.submittedThisRound = true;
+        const fb = document.getElementById('submitFeedback');
+        fb.textContent = '✅ 战绩已成功写入排行榜！';
+        fb.classList.remove('hidden');
+      });
+
+      // Leaderboard controls
+      document.getElementById('refreshRankBtn').addEventListener('click', syncWithServer);
+      document.getElementById('resetLocalRankBtn').addEventListener('click', () => {
+        leaderboard = DEFAULT_SCORES.slice();
+        saveLocalScores(leaderboard);
+        renderLeaderboards();
+      });
+
+      // Copy command buttons
+      document.querySelectorAll('.copy-cmd-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const cmd = btn.getAttribute('data-copy');
+          if (cmd) copyTextToClipboard(cmd);
+        });
+      });
+
+      // On-screen directional hold buttons
+      const bindHoldButton = (id, keyName) => {
+        const el = document.getElementById(id);
+        const start = (e) => { e.preventDefault(); keys[keyName] = true; };
+        const end = (e) => { e.preventDefault(); keys[keyName] = false; };
+        el.addEventListener('mousedown', start);
+        el.addEventListener('mouseup', end);
+        el.addEventListener('mouseleave', end);
+        el.addEventListener('touchstart', start, { passive: false });
+        el.addEventListener('touchend', end, { passive: false });
+      };
+      bindHoldButton('btnLeft', 'left');
+      bindHoldButton('btnRight', 'right');
+      bindHoldButton('btnUp', 'up');
+      bindHoldButton('btnDown', 'down');
+
+      // Canvas Pointer / Touch Drag
+      const updatePointerPos = (clientX, clientY) => {
+        const rect = canvas.getBoundingClientRect();
+        pointerTarget.x = clientX - rect.left;
+        pointerTarget.y = clientY - rect.top;
+      };
+      canvas.addEventListener('mousedown', (e) => {
+        if (gameState.status !== 'playing') return;
+        pointerActive = true;
+        updatePointerPos(e.clientX, e.clientY);
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (pointerActive) updatePointerPos(e.clientX, e.clientY);
+      });
+      window.addEventListener('mouseup', () => { pointerActive = false; });
+
+      canvas.addEventListener('touchstart', (e) => {
+        if (gameState.status !== 'playing') return;
+        pointerActive = true;
+        const t = e.touches[0];
+        updatePointerPos(t.clientX, t.clientY);
+      }, { passive: true });
+      canvas.addEventListener('touchmove', (e) => {
+        if (!pointerActive) return;
+        const t = e.touches[0];
+        updatePointerPos(t.clientX, t.clientY);
+      }, { passive: true });
+      canvas.addEventListener('touchend', () => { pointerActive = false; });
+
+      // Keyboard Controls
+      window.addEventListener('keydown', (e) => {
+        if (document.activeElement === document.getElementById('playerNameInput')) return;
+        if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
+        if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = true;
+        if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keys.up = true;
+        if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.down = true;
+        if (e.key === ' ') { e.preventDefault(); triggerDash(); }
+        if (e.key === 'e' || e.key === 'E') triggerEmp();
+        if (e.key === 'p' || e.key === 'P') togglePause();
+        if (e.key === 'Enter' && gameState.status !== 'playing') {
+          initAudio();
+          resetGame();
+        }
+      });
+
+      window.addEventListener('keyup', (e) => {
+        if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = false;
+        if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = false;
+        if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keys.up = false;
+        if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.down = false;
+      });
+
+      if (animFrameId) cancelAnimationFrame(animFrameId);
+      animFrameId = requestAnimationFrame(gameLoop);
+    };
+  </script>
+</body>
+</html>

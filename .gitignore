@@ -1,0 +1,12 @@
+# 忽略本地玩家数据库与运行期密钥（切勿上传到公开 GitHub 仓库！）
+data/*.db
+data/*.db-wal
+data/*.db-shm
+data/*.key
+bin/
+dist/
+build/
+*.spec
+__pycache__/
+*.py[cod]
+.env

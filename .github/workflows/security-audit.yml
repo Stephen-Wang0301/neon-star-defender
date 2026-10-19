@@ -1,0 +1,26 @@
+name: Security & Syntax Audit
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile & Verify Backend Modules
+        run: |
+          python -m py_compile app_launcher.py backend/config.py backend/database.py backend/security.py backend/tunnel_manager.py backend/server.py
+      - name: Run Automated Security Unit Check
+        run: |
+          python -c "from backend.database import init_db; from backend.security import sanitize_player_name; init_db(); ok, _, _ = sanitize_player_name('admin; DROP TABLE scores;--', '127.0.0.1'); assert not ok, 'SQLi must be blocked'"
