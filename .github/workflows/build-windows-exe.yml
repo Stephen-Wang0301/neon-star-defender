@@ -28,7 +28,7 @@ jobs:
           pyinstaller --noconsole --onefile --name NeonStarServer --add-data "frontend;frontend" app_launcher.py
 
       - name: Upload NeonStarServer.exe Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: NeonStarServer-Windows-EXE
           path: dist/NeonStarServer.exe
